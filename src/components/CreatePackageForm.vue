@@ -36,16 +36,16 @@ async function createPackage(): Promise<void> {
         type="text"
         placeholder="@myscope/my-package"
         required
-        class="w-72 rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-sm placeholder:font-sans focus:border-zinc-500 focus:outline-none"
+        class="border-line-strong bg-surface focus:border-line-focus w-72 rounded-md border px-3 py-1.5 font-mono text-sm placeholder:font-sans focus:outline-none"
       />
       <button
         type="submit"
         :disabled="submitting"
-        class="cursor-pointer rounded-md bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-default disabled:opacity-50"
+        class="bg-primary text-primary-ink hover:bg-primary-hover cursor-pointer rounded-md px-4 py-1.5 text-sm font-medium transition-colors disabled:cursor-default disabled:opacity-50"
       >
         Create package
       </button>
     </div>
-    <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+    <p v-if="error" class="text-danger text-sm">{{ error }}</p>
   </form>
 </template>

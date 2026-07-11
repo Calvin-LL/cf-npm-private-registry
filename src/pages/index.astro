@@ -11,21 +11,21 @@ const packages = await listPackages(env.DB);
 <Layout title="Packages">
   <div class="flex flex-col gap-6">
     <h1 class="text-2xl font-bold">Packages</h1>
-    <section class="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-      <h2 class="mb-3 text-sm font-semibold text-zinc-700">New package</h2>
+    <section class="border-line bg-surface rounded-lg border p-4 shadow-sm">
+      <h2 class="text-ink-muted mb-3 text-sm font-semibold">New package</h2>
       <CreatePackageForm client:load />
     </section>
-    <section class="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+    <section class="border-line bg-surface rounded-lg border p-4 shadow-sm">
       {
         packages.length === 0 ? (
-          <p class="py-4 text-center text-sm text-zinc-500">
+          <p class="text-ink-faint py-4 text-center text-sm">
             No packages yet. Create one above to get started.
           </p>
         ) : (
           <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
               <thead>
-                <tr class="border-b border-zinc-200 text-xs text-zinc-500 uppercase">
+                <tr class="border-line text-ink-faint border-b text-xs uppercase">
                   <th class="py-2 pr-4 font-medium">Name</th>
                   <th class="py-2 pr-4 font-medium">Latest</th>
                   <th class="py-2 pr-4 font-medium">Versions</th>
@@ -35,23 +35,25 @@ const packages = await listPackages(env.DB);
               </thead>
               <tbody>
                 {packages.map((pkg) => (
-                  <tr class="border-b border-zinc-100 last:border-b-0">
+                  <tr class="border-line-soft border-b last:border-b-0">
                     <td class="py-2.5 pr-4">
                       <a
                         href={`/packages/${pkg.name}`}
-                        class="font-mono text-sm font-medium text-zinc-900 hover:underline"
+                        class="text-ink font-mono text-sm font-medium hover:underline"
                       >
                         {pkg.name}
                       </a>
                     </td>
-                    <td class="py-2.5 pr-4 font-mono text-zinc-600">
+                    <td class="text-ink-muted py-2.5 pr-4 font-mono">
                       {pkg.latest_version ?? "unpublished"}
                     </td>
-                    <td class="py-2.5 pr-4 text-zinc-600">
+                    <td class="text-ink-muted py-2.5 pr-4">
                       {pkg.version_count}
                     </td>
-                    <td class="py-2.5 pr-4 text-zinc-600">{pkg.token_count}</td>
-                    <td class="py-2.5 text-zinc-600">
+                    <td class="text-ink-muted py-2.5 pr-4">
+                      {pkg.token_count}
+                    </td>
+                    <td class="text-ink-muted py-2.5">
                       {formatDate(pkg.created_at)}
                     </td>
                   </tr>

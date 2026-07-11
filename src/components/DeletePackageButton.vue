@@ -35,11 +35,11 @@ async function deletePackage(): Promise<void> {
     <button
       type="button"
       :disabled="deleting"
-      class="cursor-pointer self-start rounded-md border border-red-300 bg-white px-4 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-default disabled:opacity-50"
+      class="border-danger-line bg-surface text-danger hover:bg-danger-wash cursor-pointer self-start rounded-md border px-4 py-1.5 text-sm font-medium transition-colors disabled:cursor-default disabled:opacity-50"
       @click="deletePackage"
     >
       Delete package
     </button>
-    <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+    <p v-if="error" class="text-danger text-sm">{{ error }}</p>
   </div>
 </template>

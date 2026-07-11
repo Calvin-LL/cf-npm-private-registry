@@ -20,7 +20,7 @@ async function copy(): Promise<void> {
 <template>
   <button
     type="button"
-    class="cursor-pointer rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
+    class="border-line-strong bg-surface text-ink-muted hover:bg-chip hover:text-ink cursor-pointer rounded-md border px-2 py-1 text-xs font-medium transition-colors"
     @click="copy"
   >
     {{ copied ? "Copied!" : "Copy" }}

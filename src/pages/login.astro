@@ -13,26 +13,26 @@ const hasError = Astro.url.searchParams.has("error");
     <form
       method="post"
       action="/api/login"
-      class="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm"
+      class="border-line bg-surface flex flex-col gap-3 rounded-lg border p-6 shadow-sm"
     >
       <label class="flex flex-col gap-1.5">
-        <span class="text-sm font-medium text-zinc-700">Admin password</span>
+        <span class="text-ink-muted text-sm font-medium">Admin password</span>
         <input
           type="password"
           name="password"
           required
           autofocus
-          class="rounded-md border border-zinc-300 px-3 py-1.5 text-sm focus:border-zinc-500 focus:outline-none"
+          class="border-line-strong bg-surface focus:border-line-focus rounded-md border px-3 py-1.5 text-sm focus:outline-none"
         />
       </label>
       {
         hasError && (
-          <p class="text-sm text-red-600">Wrong password, try again.</p>
+          <p class="text-danger text-sm">Wrong password, try again.</p>
         )
       }
       <button
         type="submit"
-        class="cursor-pointer rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+        class="bg-primary text-primary-ink hover:bg-primary-hover cursor-pointer rounded-md px-4 py-2 text-sm font-medium transition-colors"
       >
         Log in
       </button>

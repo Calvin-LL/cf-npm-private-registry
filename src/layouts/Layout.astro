@@ -8,6 +8,16 @@ interface Props {
 }
 
 const { title, showNav = true } = Astro.props;
+const pathname = Astro.url.pathname;
+
+const navLinks = [
+  {
+    href: "/",
+    label: "Packages",
+    active: pathname === "/" || pathname.startsWith("/packages"),
+  },
+  { href: "/tokens", label: "Tokens", active: pathname === "/tokens" },
+];
 ---
 
 <html lang="en">
@@ -18,19 +28,37 @@ const { title, showNav = true } = Astro.props;
     <meta name="robots" content="noindex" />
     <title>{title}</title>
   </head>
-  <body class="min-h-screen bg-zinc-100 font-sans text-zinc-900 antialiased">
+  <body class="bg-page text-ink min-h-screen font-sans antialiased">
     {
       showNav && (
-        <header class="border-b border-zinc-200 bg-white">
+        <header class="border-line bg-surface border-b">
           <div class="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
-            <a href="/" class="flex items-center gap-2.5 font-semibold">
-              <img src="/favicon.svg" alt="" class="size-6" />
-              <span>Private npm registry</span>
-            </a>
+            <div class="flex items-center gap-6">
+              <a href="/" class="flex items-center gap-2.5 font-semibold">
+                <img src="/favicon.svg" alt="" class="size-6" />
+                <span>Private npm registry</span>
+              </a>
+              <nav class="flex items-center gap-4">
+                {navLinks.map((link) => (
+                  <a
+                    href={link.href}
+                    aria-current={link.active ? "page" : undefined}
+                    class:list={[
+                      "text-sm transition-colors",
+                      link.active
+                        ? "text-ink font-medium"
+                        : "text-ink-faint hover:text-ink",
+                    ]}
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </nav>
+            </div>
             <form method="post" action="/api/logout">
               <button
                 type="submit"
-                class="cursor-pointer text-sm text-zinc-500 transition-colors hover:text-zinc-900"
+                class="text-ink-faint hover:text-ink cursor-pointer text-sm transition-colors"
               >
                 Log out
               </button>
