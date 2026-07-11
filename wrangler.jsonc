@@ -11,11 +11,15 @@
   "observability": {
     "enabled": true,
   },
+  // The database and bucket are referenced by name only, so this file needs
+  // no per-deployment edits: wrangler resolves (or provisions) them at
+  // deploy time. Runtime configuration lives in Cloudflare secrets
+  // (ADMIN_PASSWORD required; PROXY_UPSTREAM and UPSTREAM_REGISTRY optional),
+  // never in this file, so deploys cannot clobber it.
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "npm-registry",
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
       "migrations_dir": "migrations",
     },
   ],
@@ -25,9 +29,4 @@
       "bucket_name": "npm-registry-tarballs",
     },
   ],
-  "vars": {
-    // Set to "true" to proxy requests for unknown packages to UPSTREAM_REGISTRY.
-    "PROXY_UPSTREAM": "false",
-    "UPSTREAM_REGISTRY": "https://registry.npmjs.org",
-  },
 }

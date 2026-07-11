@@ -54,7 +54,7 @@ Package names must be scoped (`@yourscope/yourpackage`). That is what makes the 
 
 ## Deploy
 
-You need a Cloudflare account (the free plan is fine) and `node >= 22`.
+You need a Cloudflare account (the free plan is fine) and `node >= 22`. You do **not** need to fork this repo: deploying pushes code to your Cloudflare account, not to GitHub, and there is nothing to edit because `wrangler.jsonc` references the database and bucket by name and all per-deployment configuration lives in Cloudflare secrets.
 
 ```sh
 git clone https://github.com/Calvin-LL/cf-npm-private-registry.git
@@ -63,38 +63,45 @@ npm install
 npx wrangler login
 ```
 
-1. Create the D1 database and copy the printed `database_id` into `wrangler.jsonc` (replace `REPLACE_WITH_YOUR_D1_DATABASE_ID`):
+1. Create the D1 database and the R2 bucket:
 
    ```sh
    npx wrangler d1 create npm-registry
-   ```
-
-2. Create the R2 bucket:
-
-   ```sh
    npx wrangler r2 bucket create npm-registry-tarballs
    ```
 
-3. Create the tables:
+2. Create the tables:
 
    ```sh
    npx wrangler d1 migrations apply npm-registry --remote
    ```
 
-4. Set the admin password for the web UI:
+3. Set the admin password for the web UI:
 
    ```sh
    npx wrangler secret put ADMIN_PASSWORD
    ```
 
-5. Build and deploy:
+4. Build and deploy:
 
    ```sh
    npm run build
    npx wrangler deploy
    ```
 
-Open the printed `*.workers.dev` URL (or put a custom domain in front of it) and log in with your admin password.
+Open the printed `*.workers.dev` URL (or put a custom domain in front of it) and log in with your admin password. To update later, `git pull` and repeat step 4.
+
+### If you want your own copy of the repo
+
+A GitHub fork of a public repo can never be made private, so do not fork this repo if you want a private copy. This repo is a GitHub **template**: click "Use this template" on the repo page and you get a fresh, detached copy under your account that can be private from day one. That is only needed if you want to customize the code or deploy from CI; for plain deployments the clone above is enough.
+
+### Where configuration lives
+
+Nothing deployment-specific is stored in the repo, so pulling updates never conflicts and deploys never clobber your settings:
+
+- `ADMIN_PASSWORD` is a Cloudflare secret (step 3).
+- Optional settings like `PROXY_UPSTREAM` are also set as secrets (see below). Avoid setting them as plaintext variables in the Cloudflare dashboard: `wrangler deploy` replaces plaintext variables with whatever the config file declares, while secrets always survive deploys.
+- The D1 database and R2 bucket are bound by name, so `wrangler.jsonc` contains no account-specific ids.
 
 ## Usage
 
@@ -148,14 +155,13 @@ Note that the package must first be created in the UI: tokens grant access per p
 
 By default this registry only answers for the packages it hosts; anything else gets a 404. That is intentional, because the recommended per-scope `.npmrc` setup never sends other requests here anyway.
 
-If you want to point npm at this registry for **everything** (a single `registry=` line instead of a scoped one), enable upstream proxying by setting the `PROXY_UPSTREAM` variable to `"true"` in `wrangler.jsonc` (or in the Cloudflare dashboard) and redeploying:
+If you want to point npm at this registry for **everything** (a single `registry=` line instead of a scoped one), enable upstream proxying by setting the `PROXY_UPSTREAM` secret to `true`:
 
-```jsonc
-"vars": {
-  "PROXY_UPSTREAM": "true",
-  "UPSTREAM_REGISTRY": "https://registry.npmjs.org"
-}
+```sh
+npx wrangler secret put PROXY_UPSTREAM   # enter: true
 ```
+
+The upstream defaults to `https://registry.npmjs.org`; set an `UPSTREAM_REGISTRY` secret to override it. Both take effect immediately, need no redeploy, and survive future deploys (which is why they are secrets rather than plaintext variables).
 
 With proxying on, a project's `.npmrc` needs just one `registry=` line instead of a scoped mapping, and every package (public or private) is requested through your registry:
 
