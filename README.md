@@ -157,7 +157,14 @@ If you want to point npm at this registry for **everything** (a single `registry
 }
 ```
 
-Requests for unknown packages (and npm audit calls) are then forwarded to `UPSTREAM_REGISTRY` without your credentials. Your private packages are still served locally and still require tokens.
+With proxying on, a project's `.npmrc` needs just one `registry=` line instead of a scoped mapping, and every package (public or private) is requested through your registry:
+
+```ini
+registry=https://your-registry.workers.dev/
+//your-registry.workers.dev/:_authToken=cfnpm_your_token_here
+```
+
+Requests for unknown packages (and npm audit calls) are then forwarded to `UPSTREAM_REGISTRY` without your credentials. Your private packages are still served locally and still require tokens; public packages need no permissions at all.
 
 ## Security notes
 
