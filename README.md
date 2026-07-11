@@ -12,6 +12,20 @@ A self-hosted npm registry for private packages that runs entirely on Cloudflare
 - Tokens are stored as SHA-256 hashes and shown exactly once at creation.
 - No proxying of the public registry by default. Requests for packages you do not host return 404 unless you opt in (see [Proxying the public registry](#proxying-the-public-registry)).
 
+## Screenshots
+
+The dashboard lists your packages with their latest version, version count, and token count:
+
+![Dashboard listing the registry's packages](docs/screenshots/dashboard.png)
+
+Each package page has ready-to-paste `.npmrc` and install snippets, token management (tokens are shown exactly once, right after creation), the published versions with their dist-tags, and a danger zone:
+
+![Package page with setup snippets, tokens, and versions](docs/screenshots/package.png)
+
+The UI sits behind a single admin password:
+
+![Login page](docs/screenshots/login.png)
+
 ## How it works
 
 Package names must be scoped (`@yourscope/yourpackage`). That is what makes the "no proxy" setup work: your projects keep installing everything else from the public npm registry, and only requests for your scope go to this one.
