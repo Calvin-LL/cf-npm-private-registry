@@ -12,9 +12,11 @@ interface Emits {
 defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-function permissionLabel(token: TokenView): string {
-  if (token.can_read === 1 && token.can_write === 1) return "read + write";
-  return token.can_write === 1 ? "write" : "read";
+function permissionLabels(token: TokenView): string[] {
+  const labels: string[] = [];
+  if (token.can_read === 1) labels.push("read");
+  if (token.can_write === 1) labels.push("write");
+  return labels;
 }
 </script>
 
@@ -47,9 +49,11 @@ function permissionLabel(token: TokenView): string {
           </td>
           <td class="py-2 pr-4">
             <span
-              class="bg-chip text-chip-ink rounded-full px-2 py-0.5 text-xs font-medium"
+              v-for="label in permissionLabels(token)"
+              :key="label"
+              class="bg-chip text-chip-ink mr-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
             >
-              {{ permissionLabel(token) }}
+              {{ label }}
             </span>
           </td>
           <td class="py-2 pr-4">
