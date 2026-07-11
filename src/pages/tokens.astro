@@ -1,0 +1,33 @@
+---
+import { env } from "cloudflare:workers";
+import TokenManager from "@/components/TokenManager.vue";
+import Layout from "@/layouts/Layout.astro";
+import { listAllTokens, listPackages } from "@/lib/db";
+
+const [tokens, packages] = await Promise.all([
+  listAllTokens(env.DB),
+  listPackages(env.DB),
+]);
+const packageOptions = packages.map(function toOption(pkg) {
+  return { id: pkg.id, name: pkg.name };
+});
+---
+
+<Layout title="Tokens">
+  <div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-1">
+      <h1 class="text-2xl font-bold">Tokens</h1>
+      <p class="text-ink-muted text-sm">
+        Tokens authenticate npm against this registry. A token can grant read
+        (install) or write (publish) access to one package or several.
+      </p>
+    </div>
+    <section class="border-line bg-surface rounded-lg border p-4 shadow-sm">
+      <TokenManager
+        client:load
+        packages={packageOptions}
+        initialTokens={tokens}
+      />
+    </section>
+  </div>
+</Layout>

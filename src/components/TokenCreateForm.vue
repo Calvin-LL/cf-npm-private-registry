@@ -1,9 +1,15 @@
 <script setup lang="ts">
-import { shallowRef } from "vue";
-import { ApiError, apiFetch, type TokenView } from "@/lib/client";
+import { ref, shallowRef } from "vue";
+import {
+  ApiError,
+  apiFetch,
+  type PackageOption,
+  type TokenView,
+} from "@/lib/client";
 
 interface Props {
-  packageId: number;
+  packages: PackageOption[];
+  defaultSelectedIds?: number[];
 }
 
 interface Emits {
@@ -15,26 +21,33 @@ const emit = defineEmits<Emits>();
 
 const label = shallowRef("");
 const permission = shallowRef<"read" | "write" | "readwrite">("read");
+const selectedIds = ref<number[]>([...(props.defaultSelectedIds ?? [])]);
 const error = shallowRef<string | undefined>(undefined);
 const submitting = shallowRef(false);
 
 async function createToken(): Promise<void> {
+  if (selectedIds.value.length === 0) {
+    error.value = "Select at least one package for this token";
+    return;
+  }
   submitting.value = true;
   error.value = undefined;
   try {
     const result = await apiFetch<{ token: string; row: TokenView }>(
-      `/api/packages/${props.packageId}/tokens`,
+      "/api/tokens",
       {
         method: "POST",
         body: JSON.stringify({
           label: label.value.trim(),
           canRead: permission.value !== "write",
           canWrite: permission.value !== "read",
+          packageIds: selectedIds.value,
         }),
       },
     );
     label.value = "";
     permission.value = "read";
+    selectedIds.value = [...(props.defaultSelectedIds ?? [])];
     emit("created", result.token, result.row);
   } catch (cause) {
     error.value =
@@ -46,7 +59,7 @@ async function createToken(): Promise<void> {
 </script>
 
 <template>
-  <form class="flex flex-col gap-2" @submit.prevent="createToken">
+  <form class="flex flex-col gap-3" @submit.prevent="createToken">
     <div class="flex flex-wrap items-center gap-2">
       <input
         v-model="label"
@@ -54,11 +67,11 @@ async function createToken(): Promise<void> {
         placeholder="Label, e.g. ci-publish"
         required
         maxlength="100"
-        class="w-56 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm focus:border-zinc-500 focus:outline-none"
+        class="border-line-strong bg-surface focus:border-line-focus w-56 rounded-md border px-3 py-1.5 text-sm focus:outline-none"
       />
       <select
         v-model="permission"
-        class="cursor-pointer rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm focus:border-zinc-500 focus:outline-none"
+        class="border-line-strong bg-surface focus:border-line-focus cursor-pointer rounded-md border px-2 py-1.5 text-sm focus:outline-none"
       >
         <option value="read">Read only (install)</option>
         <option value="write">Write only (publish)</option>
@@ -67,11 +80,29 @@ async function createToken(): Promise<void> {
       <button
         type="submit"
         :disabled="submitting"
-        class="cursor-pointer rounded-md bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-default disabled:opacity-50"
+        class="bg-primary text-primary-ink hover:bg-primary-hover cursor-pointer rounded-md px-4 py-1.5 text-sm font-medium transition-colors disabled:cursor-default disabled:opacity-50"
       >
         Generate token
       </button>
     </div>
-    <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+    <fieldset class="flex flex-col gap-1.5">
+      <legend class="text-ink-muted mb-1.5 text-xs font-medium uppercase">
+        Grants access to
+      </legend>
+      <label
+        v-for="pkg in packages"
+        :key="pkg.id"
+        class="flex cursor-pointer items-center gap-2 text-sm"
+      >
+        <input
+          v-model="selectedIds"
+          type="checkbox"
+          :value="pkg.id"
+          class="cursor-pointer"
+        />
+        <span class="font-mono">{{ pkg.name }}</span>
+      </label>
+    </fieldset>
+    <p v-if="error" class="text-danger text-sm">{{ error }}</p>
   </form>
 </template>

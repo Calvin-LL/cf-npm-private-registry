@@ -8,7 +8,8 @@ import { formatDate } from "@/lib/client";
 import {
   getDistTags,
   getPackageByName,
-  listTokens,
+  listPackages,
+  listTokensForPackage,
   listVersions,
 } from "@/lib/db";
 
@@ -17,11 +18,15 @@ const pkg = await getPackageByName(env.DB, name);
 if (!pkg) {
   return new Response("Package not found", { status: 404 });
 }
-const [tokens, versions, distTags] = await Promise.all([
-  listTokens(env.DB, pkg.id),
+const [tokens, versions, distTags, packages] = await Promise.all([
+  listTokensForPackage(env.DB, pkg.id),
   listVersions(env.DB, pkg.id),
   getDistTags(env.DB, pkg.id),
+  listPackages(env.DB),
 ]);
+const packageOptions = packages.map(function toOption(row) {
+  return { id: row.id, name: row.name };
+});
 
 const tagsByVersion = new Map<string, string[]>();
 for (const [tag, version] of Object.entries(distTags)) {
@@ -38,57 +43,67 @@ const installCommand = `npm install ${pkg.name}`;
 <Layout title={pkg.name}>
   <div class="flex flex-col gap-6">
     <div class="flex flex-col gap-1">
-      <a href="/" class="text-sm text-zinc-500 hover:text-zinc-900"
+      <a href="/" class="text-ink-faint hover:text-ink text-sm"
         >&larr; All packages</a
       >
       <h1 class="font-mono text-2xl font-bold">{pkg.name}</h1>
     </div>
 
     <section
-      class="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm"
+      class="border-line bg-surface flex flex-col gap-3 rounded-lg border p-4 shadow-sm"
     >
-      <h2 class="text-sm font-semibold text-zinc-700">Use this package</h2>
-      <p class="text-sm text-zinc-600">
-        Add this to the <code class="rounded bg-zinc-100 px-1 font-mono text-xs"
+      <h2 class="text-ink-muted text-sm font-semibold">Use this package</h2>
+      <p class="text-ink-muted text-sm">
+        Add this to the <code class="bg-chip rounded px-1 font-mono text-xs"
           >.npmrc</code
         > of any project that installs or publishes it, with a token generated below:
       </p>
       <div class="flex items-start gap-2">
         <pre
-          class="grow overflow-x-auto rounded-md bg-zinc-900 p-3 font-mono text-xs leading-relaxed text-zinc-100">{npmrcSnippet}</pre>
+          class="bg-code-bg text-code-ink grow overflow-x-auto rounded-md p-3 font-mono text-xs leading-relaxed">{npmrcSnippet}</pre>
         <CopyButton client:load text={npmrcSnippet} />
       </div>
       <div class="flex items-start gap-2">
         <pre
-          class="grow overflow-x-auto rounded-md bg-zinc-900 p-3 font-mono text-xs leading-relaxed text-zinc-100">{installCommand}</pre>
+          class="bg-code-bg text-code-ink grow overflow-x-auto rounded-md p-3 font-mono text-xs leading-relaxed">{installCommand}</pre>
         <CopyButton client:load text={installCommand} />
       </div>
-      <p class="text-sm text-zinc-600">
+      <p class="text-ink-muted text-sm">
         Publishing works the same way: run{" "}
-        <code class="rounded bg-zinc-100 px-1 font-mono text-xs"
-          >npm publish</code
-        > in the package repo with a write token in its <code
-          class="rounded bg-zinc-100 px-1 font-mono text-xs">.npmrc</code
+        <code class="bg-chip rounded px-1 font-mono text-xs">npm publish</code> in
+        the package repo with a write token in its <code
+          class="bg-chip rounded px-1 font-mono text-xs">.npmrc</code
         >.
       </p>
     </section>
 
     <section
-      class="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm"
+      class="border-line bg-surface flex flex-col gap-3 rounded-lg border p-4 shadow-sm"
     >
-      <h2 class="text-sm font-semibold text-zinc-700">Tokens</h2>
-      <TokenManager client:load packageId={pkg.id} initialTokens={tokens} />
+      <div class="flex items-baseline justify-between">
+        <h2 class="text-ink-muted text-sm font-semibold">Tokens</h2>
+        <a href="/tokens" class="text-ink-faint hover:text-ink text-xs"
+          >Manage all tokens &rarr;</a
+        >
+      </div>
+      <TokenManager
+        client:load
+        packages={packageOptions}
+        initialTokens={tokens}
+        defaultSelectedIds={[pkg.id]}
+        onlyPackageId={pkg.id}
+      />
     </section>
 
     <section
-      class="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm"
+      class="border-line bg-surface flex flex-col gap-3 rounded-lg border p-4 shadow-sm"
     >
-      <h2 class="text-sm font-semibold text-zinc-700">Versions</h2>
+      <h2 class="text-ink-muted text-sm font-semibold">Versions</h2>
       {
         versions.length === 0 ? (
-          <p class="text-sm text-zinc-500">
+          <p class="text-ink-faint text-sm">
             Nothing published yet. Generate a write token and run{" "}
-            <code class="rounded bg-zinc-100 px-1 font-mono text-xs">
+            <code class="bg-chip rounded px-1 font-mono text-xs">
               npm publish
             </code>
             .
@@ -97,7 +112,7 @@ const installCommand = `npm install ${pkg.name}`;
           <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
               <thead>
-                <tr class="border-b border-zinc-200 text-xs text-zinc-500 uppercase">
+                <tr class="border-line text-ink-faint border-b text-xs uppercase">
                   <th class="py-2 pr-4 font-medium">Version</th>
                   <th class="py-2 pr-4 font-medium">Tags</th>
                   <th class="py-2 font-medium">Published</th>
@@ -108,18 +123,18 @@ const installCommand = `npm install ${pkg.name}`;
                   .slice()
                   .reverse()
                   .map((version) => (
-                    <tr class="border-b border-zinc-100 last:border-b-0">
+                    <tr class="border-line-soft border-b last:border-b-0">
                       <td class="py-2 pr-4 font-mono">{version.version}</td>
                       <td class="py-2 pr-4">
                         {(tagsByVersion.get(version.version) ?? []).map(
                           (tag) => (
-                            <span class="mr-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                            <span class="bg-chip text-chip-ink mr-1 rounded-full px-2 py-0.5 text-xs font-medium">
                               {tag}
                             </span>
                           ),
                         )}
                       </td>
-                      <td class="py-2 text-zinc-600">
+                      <td class="text-ink-muted py-2">
                         {formatDate(version.published_at)}
                       </td>
                     </tr>
@@ -132,9 +147,9 @@ const installCommand = `npm install ${pkg.name}`;
     </section>
 
     <section
-      class="flex flex-col gap-3 rounded-lg border border-red-200 bg-white p-4 shadow-sm"
+      class="border-danger-line bg-surface flex flex-col gap-3 rounded-lg border p-4 shadow-sm"
     >
-      <h2 class="text-sm font-semibold text-red-700">Danger zone</h2>
+      <h2 class="text-danger text-sm font-semibold">Danger zone</h2>
       <DeletePackageButton
         client:load
         packageId={pkg.id}

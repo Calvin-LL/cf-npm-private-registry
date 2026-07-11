@@ -78,7 +78,7 @@ export async function ALL(context: APIContext): Promise<Response> {
       if (!token) return npmError(401, "authentication required");
       const found = await findTokenByHash(env.DB, await sha256Hex(token));
       if (!found) return npmError(401, "invalid or revoked token");
-      return npmJson({ username: `${found.token.label} (${found.pkg.name})` });
+      return npmJson({ username: found.label });
     }
 
     case "user":

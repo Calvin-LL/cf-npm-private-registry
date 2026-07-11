@@ -7,7 +7,7 @@ import { getRuntimeConfig } from "@/lib/config";
 // npm registry protocol, which does its own token authentication. Package
 // names are required to be scoped (start with "@"), so they can never
 // collide with these prefixes.
-const UI_PATH_PATTERN = /^\/(?:$|login$|packages(?:\/|$)|api(?:\/|$))/;
+const UI_PATH_PATTERN = /^\/(?:$|login$|tokens$|packages(?:\/|$)|api(?:\/|$))/;
 
 export const onRequest = defineMiddleware(
   async function onRequest(context, next) {

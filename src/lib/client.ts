@@ -2,13 +2,18 @@
 
 export interface TokenView {
   id: number;
-  package_id: number;
   label: string;
   token_prefix: string;
   can_read: number;
   can_write: number;
   created_at: string;
   last_used_at: string | null;
+  packages: string[];
+}
+
+export interface PackageOption {
+  id: number;
+  name: string;
 }
 
 export class ApiError extends Error {}

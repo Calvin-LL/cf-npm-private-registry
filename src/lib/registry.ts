@@ -1,8 +1,8 @@
 import { sha256Hex } from "@/lib/auth";
 import {
   findTokenByHash,
+  tokenGrantsPackage,
   touchToken,
-  type PackageRow,
   type TokenRow,
 } from "@/lib/db";
 
@@ -110,8 +110,7 @@ export function bearerToken(request: Request): string | undefined {
 }
 
 export type RegistryAuth =
-  | { ok: true; token: TokenRow; pkg: PackageRow }
-  | { ok: false; response: Response };
+  { ok: true; token: TokenRow } | { ok: false; response: Response };
 
 export async function authenticate(
   request: Request,
@@ -134,7 +133,7 @@ export async function authenticate(
   if (!found) {
     return { ok: false, response: npmError(401, "invalid or revoked token") };
   }
-  if (found.pkg.name !== packageName) {
+  if (!(await tokenGrantsPackage(db, found.id, packageName))) {
     return {
       ok: false,
       response: npmError(
@@ -144,9 +143,7 @@ export async function authenticate(
     };
   }
   const allowed =
-    permission === "read"
-      ? found.token.can_read === 1
-      : found.token.can_write === 1;
+    permission === "read" ? found.can_read === 1 : found.can_write === 1;
   if (!allowed) {
     return {
       ok: false,
@@ -156,8 +153,8 @@ export async function authenticate(
       ),
     };
   }
-  waitUntil(touchToken(db, found.token.id));
-  return { ok: true, token: found.token, pkg: found.pkg };
+  waitUntil(touchToken(db, found.id));
+  return { ok: true, token: found };
 }
 
 export interface VersionManifest {

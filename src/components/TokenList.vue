@@ -19,16 +19,17 @@ function permissionLabel(token: TokenView): string {
 </script>
 
 <template>
-  <p v-if="tokens.length === 0" class="text-sm text-zinc-500">
-    No tokens yet. Generate one to install or publish this package.
+  <p v-if="tokens.length === 0" class="text-ink-faint text-sm">
+    No tokens yet. Generate one to install or publish packages.
   </p>
   <div v-else class="overflow-x-auto">
     <table class="w-full text-left text-sm">
       <thead>
-        <tr class="border-b border-zinc-200 text-xs text-zinc-500 uppercase">
+        <tr class="border-line text-ink-faint border-b text-xs uppercase">
           <th class="py-2 pr-4 font-medium">Label</th>
           <th class="py-2 pr-4 font-medium">Token</th>
           <th class="py-2 pr-4 font-medium">Access</th>
+          <th class="py-2 pr-4 font-medium">Packages</th>
           <th class="py-2 pr-4 font-medium">Created</th>
           <th class="py-2 pr-4 font-medium">Last used</th>
           <th class="py-2 font-medium"></th>
@@ -38,29 +39,44 @@ function permissionLabel(token: TokenView): string {
         <tr
           v-for="token in tokens"
           :key="token.id"
-          class="border-b border-zinc-100"
+          class="border-line-soft border-b"
         >
           <td class="py-2 pr-4">{{ token.label }}</td>
-          <td class="py-2 pr-4 font-mono text-xs text-zinc-500">
+          <td class="text-ink-faint py-2 pr-4 font-mono text-xs">
             {{ token.token_prefix }}...
           </td>
           <td class="py-2 pr-4">
             <span
-              class="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700"
+              class="bg-chip text-chip-ink rounded-full px-2 py-0.5 text-xs font-medium"
             >
               {{ permissionLabel(token) }}
             </span>
           </td>
-          <td class="py-2 pr-4 text-zinc-500">
+          <td class="py-2 pr-4">
+            <span
+              v-for="name in token.packages"
+              :key="name"
+              class="bg-chip text-chip-ink mr-1 inline-block rounded-full px-2 py-0.5 font-mono text-xs"
+            >
+              {{ name }}
+            </span>
+            <span
+              v-if="token.packages.length === 0"
+              class="text-ink-faint text-xs"
+            >
+              none
+            </span>
+          </td>
+          <td class="text-ink-faint py-2 pr-4">
             {{ formatDate(token.created_at) }}
           </td>
-          <td class="py-2 pr-4 text-zinc-500">
+          <td class="text-ink-faint py-2 pr-4">
             {{ token.last_used_at ? formatDate(token.last_used_at) : "never" }}
           </td>
           <td class="py-2 text-right">
             <button
               type="button"
-              class="cursor-pointer text-xs font-medium text-red-600 hover:text-red-800"
+              class="text-danger hover:text-danger-strong cursor-pointer text-xs font-medium"
               @click="emit('revoke', token.id)"
             >
               Revoke

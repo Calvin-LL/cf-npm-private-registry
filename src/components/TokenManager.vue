@@ -2,11 +2,18 @@
 import { shallowRef } from "vue";
 import TokenCreateForm from "@/components/TokenCreateForm.vue";
 import TokenList from "@/components/TokenList.vue";
-import { ApiError, apiFetch, type TokenView } from "@/lib/client";
+import {
+  ApiError,
+  apiFetch,
+  type PackageOption,
+  type TokenView,
+} from "@/lib/client";
 
 interface Props {
-  packageId: number;
+  packages: PackageOption[];
   initialTokens: TokenView[];
+  defaultSelectedIds?: number[];
+  onlyPackageId?: number;
 }
 
 const props = defineProps<Props>();
@@ -16,8 +23,20 @@ const newToken = shallowRef<string | undefined>(undefined);
 const error = shallowRef<string | undefined>(undefined);
 const copied = shallowRef(false);
 
+// On a package page the list only shows tokens that grant access to that
+// package; a token created without it should not appear there.
+function isListed(row: TokenView): boolean {
+  if (props.onlyPackageId === undefined) return true;
+  const name = props.packages.find(function matches(pkg) {
+    return pkg.id === props.onlyPackageId;
+  })?.name;
+  return name !== undefined && row.packages.includes(name);
+}
+
 function handleCreated(token: string, row: TokenView): void {
-  tokens.value = [row, ...tokens.value];
+  if (isListed(row)) {
+    tokens.value = [row, ...tokens.value];
+  }
   newToken.value = token;
   copied.value = false;
 }
@@ -27,8 +46,9 @@ async function handleRevoke(id: number): Promise<void> {
     !window.confirm(
       "Revoke this token? npm clients using it will stop working.",
     )
-  )
+  ) {
     return;
+  }
   error.value = undefined;
   try {
     await apiFetch(`/api/tokens/${id}`, { method: "DELETE" });
@@ -50,30 +70,34 @@ async function copyNewToken(): Promise<void> {
 
 <template>
   <div class="flex flex-col gap-4">
-    <TokenCreateForm :package-id="packageId" @created="handleCreated" />
+    <TokenCreateForm
+      :packages="packages"
+      :default-selected-ids="defaultSelectedIds"
+      @created="handleCreated"
+    />
     <div
       v-if="newToken"
-      class="flex flex-col gap-2 rounded-md border border-emerald-300 bg-emerald-50 p-3"
+      class="border-success-line bg-success-wash flex flex-col gap-2 rounded-md border p-3"
     >
-      <p class="text-sm font-medium text-emerald-900">
+      <p class="text-success-ink text-sm font-medium">
         Token created. Copy it now: it will not be shown again.
       </p>
       <div class="flex items-center gap-2">
         <code
-          class="rounded bg-white px-2 py-1 font-mono text-xs break-all text-emerald-900"
+          class="bg-surface text-success-ink rounded px-2 py-1 font-mono text-xs break-all"
         >
           {{ newToken }}
         </code>
         <button
           type="button"
-          class="shrink-0 cursor-pointer rounded-md bg-emerald-700 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-emerald-800"
+          class="bg-success-btn hover:bg-success-btn-hover shrink-0 cursor-pointer rounded-md px-3 py-1 text-xs font-medium text-white transition-colors"
           @click="copyNewToken"
         >
           {{ copied ? "Copied!" : "Copy" }}
         </button>
       </div>
     </div>
-    <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+    <p v-if="error" class="text-danger text-sm">{{ error }}</p>
     <TokenList :tokens="tokens" @revoke="handleRevoke" />
   </div>
 </template>

@@ -12,13 +12,16 @@ export interface PackageSummary extends PackageRow {
 
 export interface TokenRow {
   id: number;
-  package_id: number;
   label: string;
   token_prefix: string;
   can_read: number;
   can_write: number;
   created_at: string;
   last_used_at: string | null;
+}
+
+export interface TokenSummary extends TokenRow {
+  packages: string[];
 }
 
 export interface VersionRow {
@@ -33,14 +36,35 @@ export interface VersionRow {
 }
 
 const TOKEN_COLUMNS =
-  "id, package_id, label, token_prefix, can_read, can_write, created_at, last_used_at";
+  "id, label, token_prefix, can_read, can_write, created_at, last_used_at";
+
+const TOKEN_SUMMARY_SELECT = `SELECT t.id, t.label, t.token_prefix, t.can_read, t.can_write,
+    t.created_at, t.last_used_at, json_group_array(p.name) AS package_names
+  FROM tokens t
+  LEFT JOIN token_packages tp ON tp.token_id = t.id
+  LEFT JOIN packages p ON p.id = tp.package_id`;
+
+interface AggregatedTokenRow extends TokenRow {
+  package_names: string;
+}
+
+function toTokenSummary(row: AggregatedTokenRow): TokenSummary {
+  const { package_names, ...token } = row;
+  const names = (JSON.parse(package_names) as (string | null)[]).filter(
+    function isName(name): name is string {
+      return typeof name === "string";
+    },
+  );
+  names.sort();
+  return { ...token, packages: names };
+}
 
 export async function listPackages(db: D1Database): Promise<PackageSummary[]> {
   const result = await db
     .prepare(
       `SELECT p.id, p.name, p.created_at,
         (SELECT COUNT(*) FROM versions v WHERE v.package_id = p.id) AS version_count,
-        (SELECT COUNT(*) FROM tokens t WHERE t.package_id = p.id) AS token_count,
+        (SELECT COUNT(*) FROM token_packages tp WHERE tp.package_id = p.id) AS token_count,
         (SELECT dt.version FROM dist_tags dt WHERE dt.package_id = p.id AND dt.tag = 'latest') AS latest_version
       FROM packages p ORDER BY p.name`,
     )
@@ -70,6 +94,21 @@ export async function getPackageById(
   return row ?? undefined;
 }
 
+export async function getPackagesByIds(
+  db: D1Database,
+  ids: number[],
+): Promise<PackageRow[]> {
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(function toPlaceholder() {
+    return "?";
+  });
+  const result = await db
+    .prepare(`SELECT * FROM packages WHERE id IN (${placeholders.join(", ")})`)
+    .bind(...ids)
+    .all<PackageRow>();
+  return result.results;
+}
+
 export async function createPackage(
   db: D1Database,
   name: string,
@@ -84,28 +123,43 @@ export async function createPackage(
 
 export async function deletePackage(db: D1Database, id: number): Promise<void> {
   await db.prepare("DELETE FROM packages WHERE id = ?").bind(id).run();
+  // Tokens whose last package was just deleted no longer grant anything.
+  await db
+    .prepare(
+      "DELETE FROM tokens WHERE id NOT IN (SELECT DISTINCT token_id FROM token_packages)",
+    )
+    .run();
 }
 
-export async function listTokens(
+export async function listAllTokens(db: D1Database): Promise<TokenSummary[]> {
+  const result = await db
+    .prepare(`${TOKEN_SUMMARY_SELECT} GROUP BY t.id ORDER BY t.created_at DESC`)
+    .all<AggregatedTokenRow>();
+  return result.results.map(toTokenSummary);
+}
+
+export async function listTokensForPackage(
   db: D1Database,
   packageId: number,
-): Promise<TokenRow[]> {
+): Promise<TokenSummary[]> {
   const result = await db
     .prepare(
-      `SELECT ${TOKEN_COLUMNS} FROM tokens WHERE package_id = ? ORDER BY created_at DESC`,
+      `${TOKEN_SUMMARY_SELECT}
+      WHERE t.id IN (SELECT token_id FROM token_packages WHERE package_id = ?)
+      GROUP BY t.id ORDER BY t.created_at DESC`,
     )
     .bind(packageId)
-    .all<TokenRow>();
-  return result.results;
+    .all<AggregatedTokenRow>();
+  return result.results.map(toTokenSummary);
 }
 
 export interface CreateTokenInput {
-  packageId: number;
   label: string;
   tokenHash: string;
   tokenPrefix: string;
   canRead: boolean;
   canWrite: boolean;
+  packageIds: number[];
 }
 
 export async function createToken(
@@ -114,11 +168,10 @@ export async function createToken(
 ): Promise<TokenRow> {
   const row = await db
     .prepare(
-      `INSERT INTO tokens (package_id, label, token_hash, token_prefix, can_read, can_write)
-      VALUES (?, ?, ?, ?, ?, ?) RETURNING ${TOKEN_COLUMNS}`,
+      `INSERT INTO tokens (label, token_hash, token_prefix, can_read, can_write)
+      VALUES (?, ?, ?, ?, ?) RETURNING ${TOKEN_COLUMNS}`,
     )
     .bind(
-      input.packageId,
       input.label,
       input.tokenHash,
       input.tokenPrefix,
@@ -127,6 +180,14 @@ export async function createToken(
     )
     .first<TokenRow>();
   if (!row) throw new Error("failed to create token");
+  const junction = db.prepare(
+    "INSERT INTO token_packages (token_id, package_id) VALUES (?, ?)",
+  );
+  await db.batch(
+    input.packageIds.map(function toStatement(packageId) {
+      return junction.bind(row.id, packageId);
+    }),
+  );
   return row;
 }
 
@@ -141,44 +202,31 @@ export async function deleteToken(
   return result.meta.changes > 0;
 }
 
-export interface TokenWithPackage {
-  token: TokenRow;
-  pkg: PackageRow;
-}
-
 export async function findTokenByHash(
   db: D1Database,
   tokenHash: string,
-): Promise<TokenWithPackage | undefined> {
-  interface JoinedRow extends TokenRow {
-    pkg_id: number;
-    pkg_name: string;
-    pkg_created_at: string;
-  }
+): Promise<TokenRow | undefined> {
+  const row = await db
+    .prepare(`SELECT ${TOKEN_COLUMNS} FROM tokens WHERE token_hash = ?`)
+    .bind(tokenHash)
+    .first<TokenRow>();
+  return row ?? undefined;
+}
+
+export async function tokenGrantsPackage(
+  db: D1Database,
+  tokenId: number,
+  packageName: string,
+): Promise<boolean> {
   const row = await db
     .prepare(
-      `SELECT t.id, t.package_id, t.label, t.token_prefix, t.can_read, t.can_write,
-        t.created_at, t.last_used_at,
-        p.id AS pkg_id, p.name AS pkg_name, p.created_at AS pkg_created_at
-      FROM tokens t JOIN packages p ON p.id = t.package_id
-      WHERE t.token_hash = ?`,
+      `SELECT 1 AS granted FROM token_packages tp
+      JOIN packages p ON p.id = tp.package_id
+      WHERE tp.token_id = ? AND p.name = ?`,
     )
-    .bind(tokenHash)
-    .first<JoinedRow>();
-  if (!row) return undefined;
-  return {
-    token: {
-      id: row.id,
-      package_id: row.package_id,
-      label: row.label,
-      token_prefix: row.token_prefix,
-      can_read: row.can_read,
-      can_write: row.can_write,
-      created_at: row.created_at,
-      last_used_at: row.last_used_at,
-    },
-    pkg: { id: row.pkg_id, name: row.pkg_name, created_at: row.pkg_created_at },
-  };
+    .bind(tokenId, packageName)
+    .first<{ granted: number }>();
+  return row !== null;
 }
 
 export async function touchToken(db: D1Database, id: number): Promise<void> {
