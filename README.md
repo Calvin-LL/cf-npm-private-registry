@@ -8,7 +8,7 @@ A self-hosted npm registry for private packages that runs entirely on Cloudflare
 
 - A real npm registry: `npm install`, `npm publish`, `npm view`, `npm deprecate`, `npm dist-tag`, and `npm unpublish` all work against it.
 - A password-protected web UI to create packages and manage tokens. The password check uses Cloudflare's built-in constant-time comparison (`crypto.subtle.timingSafeEqual`).
-- Per-package access tokens with three permission levels: read only (install), write only (publish), or read and write. Each package can have as many tokens as you like, and every token is scoped to exactly one package.
+- Access tokens with three permission levels: read only (install), write only (publish), or read and write. A token can grant access to a single package or to several at once, and each package can have as many tokens as you like.
 - Tokens are stored as SHA-256 hashes and shown exactly once at creation.
 - No proxying of the public registry by default. Requests for packages you do not host return 404 unless you opt in (see [Proxying the public registry](#proxying-the-public-registry)).
 
@@ -21,6 +21,10 @@ The dashboard lists your packages with their latest version, version count, and 
 Each package page has ready-to-paste `.npmrc` and install snippets, token management (tokens are shown exactly once, right after creation), the published versions with their dist-tags, and a danger zone:
 
 ![Package page with setup snippets, tokens, and versions](docs/screenshots/package.png)
+
+The tokens page manages every token in one place, including tokens that span multiple packages. The whole UI also follows your system's light or dark theme automatically:
+
+![Tokens page in dark mode with a token spanning two packages](docs/screenshots/tokens.png)
 
 The UI sits behind a single admin password:
 
@@ -88,7 +92,7 @@ Log in, create a package like `@yourscope/yourpackage`, then generate tokens for
 - a **write** token for CI that publishes it,
 - or a **read and write** token for local development.
 
-The token value is shown once. Copy it immediately.
+When generating a token you pick which packages it grants access to, so one token can cover your whole scope (handy for a developer machine or a CI job that installs several private packages). The tokens page shows every token across all packages. The token value itself is shown once; copy it immediately.
 
 ### 2. Point npm at your registry for your scope
 
@@ -124,7 +128,7 @@ In the repo of the package itself, with a write token in its `.npmrc`:
 npm publish
 ```
 
-Note that the package must first be created in the UI: tokens belong to packages, so there is nothing to authenticate against before it exists. Version conflicts are rejected (you cannot overwrite an already-published version), and `npm publish --tag beta`, `npm deprecate`, `npm dist-tag`, and `npm unpublish` behave like they do on the public registry.
+Note that the package must first be created in the UI: tokens grant access per package, so there is nothing to authenticate against before it exists. Version conflicts are rejected (you cannot overwrite an already-published version), and `npm publish --tag beta`, `npm deprecate`, `npm dist-tag`, and `npm unpublish` behave like they do on the public registry.
 
 ## Proxying the public registry
 
@@ -145,7 +149,7 @@ Requests for unknown packages (and npm audit calls) are then forwarded to `UPSTR
 
 - UI sessions are signed HMAC cookies derived from the admin password. Changing the password invalidates all sessions.
 - Registry tokens are random 256-bit values, stored only as SHA-256 hashes. The UI shows a short prefix so you can tell tokens apart later.
-- A token only ever grants access to the single package it was created for, limited to the read or write permissions you picked.
+- A token only ever grants access to the packages you selected when creating it, limited to the read or write permissions you picked.
 - Everything (packuments and tarballs included) requires a token; nothing about your private packages is publicly readable.
 
 ## Local development
