@@ -1,0 +1,8 @@
+# Copy to .dev.vars for local development (wrangler dev / astro dev).
+# In production set this with: npx wrangler secret put ADMIN_PASSWORD
+ADMIN_PASSWORD=change-me
+
+# Optional: proxy requests for packages this registry does not host to the
+# public npm registry. Defaults to "false" (unknown packages get a 404).
+# PROXY_UPSTREAM=true
+# UPSTREAM_REGISTRY=https://registry.npmjs.org

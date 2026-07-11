@@ -1,14 +1,33 @@
 {
-	"$schema": "./node_modules/wrangler/config-schema.json",
-	"compatibility_date": "2026-07-11",
-	"compatibility_flags": ["global_fetch_strictly_public"],
-	"name": "cf-npm-private-registry",
-	"main": "@astrojs/cloudflare/entrypoints/server",
-	"assets": {
-		"directory": "./dist",
-		"binding": "ASSETS"
-	},
-	"observability": {
-		"enabled": true
-	}
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "compatibility_date": "2026-07-11",
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "name": "cf-npm-private-registry",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+  },
+  "observability": {
+    "enabled": true,
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "npm-registry",
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "TARBALLS",
+      "bucket_name": "npm-registry-tarballs",
+    },
+  ],
+  "vars": {
+    // Set to "true" to proxy requests for unknown packages to UPSTREAM_REGISTRY.
+    "PROXY_UPSTREAM": "false",
+    "UPSTREAM_REGISTRY": "https://registry.npmjs.org",
+  },
 }

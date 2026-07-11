@@ -11,6 +11,7 @@
     "preview": "astro preview",
     "astro": "astro",
     "generate-types": "wrangler types",
+    "postinstall": "wrangler types",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "astro check && vue-tsc --noEmit"
