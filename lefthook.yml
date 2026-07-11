@@ -1,0 +1,8 @@
+pre-commit:
+  jobs:
+    - name: prettier
+      run: npx prettier --write {staged_files}
+      glob: "*.{js,mjs,cjs,ts,mts,cts,astro,vue,css,scss,json,jsonc,md,yml,yaml}"
+      exclude:
+        - "**/CLAUDE.md"
+      stage_fixed: true
