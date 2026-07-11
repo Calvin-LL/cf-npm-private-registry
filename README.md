@@ -14,21 +14,35 @@ A self-hosted npm registry for private packages that runs entirely on Cloudflare
 
 ## Screenshots
 
+The UI follows your system's light or dark theme automatically, and so do these screenshots.
+
 The dashboard lists your packages with their latest version, version count, and token count:
 
-![Dashboard listing the registry's packages](docs/screenshots/dashboard.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dashboard-dark.png" />
+  <img alt="Dashboard listing the registry's packages" src="docs/screenshots/dashboard-light.png" />
+</picture>
 
 Each package page has ready-to-paste `.npmrc` and install snippets, token management (tokens are shown exactly once, right after creation), the published versions with their dist-tags, and a danger zone:
 
-![Package page with setup snippets, tokens, and versions](docs/screenshots/package.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/package-dark.png" />
+  <img alt="Package page with setup snippets, tokens, and versions" src="docs/screenshots/package-light.png" />
+</picture>
 
-The tokens page manages every token in one place, including tokens that span multiple packages. The whole UI also follows your system's light or dark theme automatically:
+The tokens page manages every token in one place, including tokens that span multiple packages:
 
-![Tokens page in dark mode with a token spanning two packages](docs/screenshots/tokens.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tokens-dark.png" />
+  <img alt="Tokens page with a token spanning two packages" src="docs/screenshots/tokens-light.png" />
+</picture>
 
 The UI sits behind a single admin password:
 
-![Login page](docs/screenshots/login.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/login-dark.png" />
+  <img alt="Login page" src="docs/screenshots/login-light.png" />
+</picture>
 
 ## How it works
 
