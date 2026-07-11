@@ -1,4 +1,5 @@
 import type { APIContext } from "astro";
+import { env } from "cloudflare:workers";
 import {
   constantTimeEqual,
   createSession,
@@ -9,7 +10,7 @@ import { getRuntimeConfig } from "@/lib/config";
 export const prerender = false;
 
 export async function POST(context: APIContext): Promise<Response> {
-  const config = getRuntimeConfig(context.locals.runtime.env);
+  const config = getRuntimeConfig(env);
   if (!config.adminPassword) {
     return new Response(
       "ADMIN_PASSWORD is not configured. Set it with: npx wrangler secret put ADMIN_PASSWORD",

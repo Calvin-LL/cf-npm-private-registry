@@ -1,11 +1,11 @@
 import type { APIContext } from "astro";
+import { env } from "cloudflare:workers";
 import { generateToken, sha256Hex, TOKEN_PREFIX_LENGTH } from "@/lib/auth";
 import { createToken, getPackageById, listTokens } from "@/lib/db";
 
 export const prerender = false;
 
 export async function GET(context: APIContext): Promise<Response> {
-  const env = context.locals.runtime.env;
   const id = Number(context.params.id);
   if (!Number.isInteger(id)) {
     return Response.json({ error: "invalid package id" }, { status: 400 });
@@ -14,7 +14,6 @@ export async function GET(context: APIContext): Promise<Response> {
 }
 
 export async function POST(context: APIContext): Promise<Response> {
-  const env = context.locals.runtime.env;
   const id = Number(context.params.id);
   if (!Number.isInteger(id)) {
     return Response.json({ error: "invalid package id" }, { status: 400 });

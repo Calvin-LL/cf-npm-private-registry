@@ -1,0 +1,46 @@
+---
+import "@/styles/global.css";
+import "@/styles/global.scss";
+
+interface Props {
+  title: string;
+  showNav?: boolean;
+}
+
+const { title, showNav = true } = Astro.props;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="robots" content="noindex" />
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen bg-zinc-100 font-sans text-zinc-900 antialiased">
+    {
+      showNav && (
+        <header class="border-b border-zinc-200 bg-white">
+          <div class="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
+            <a href="/" class="flex items-center gap-2.5 font-semibold">
+              <img src="/favicon.svg" alt="" class="size-6" />
+              <span>Private npm registry</span>
+            </a>
+            <form method="post" action="/api/logout">
+              <button
+                type="submit"
+                class="cursor-pointer text-sm text-zinc-500 transition-colors hover:text-zinc-900"
+              >
+                Log out
+              </button>
+            </form>
+          </div>
+        </header>
+      )
+    }
+    <main class="mx-auto max-w-4xl px-4 py-8">
+      <slot />
+    </main>
+  </body>
+</html>

@@ -1,0 +1,41 @@
+---
+import Layout from "@/layouts/Layout.astro";
+
+const hasError = Astro.url.searchParams.has("error");
+---
+
+<Layout title="Log in" showNav={false}>
+  <div class="mx-auto mt-24 flex max-w-sm flex-col gap-6">
+    <div class="flex flex-col items-center gap-2">
+      <img src="/favicon.svg" alt="" class="size-12" />
+      <h1 class="text-xl font-bold">Private npm registry</h1>
+    </div>
+    <form
+      method="post"
+      action="/api/login"
+      class="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm"
+    >
+      <label class="flex flex-col gap-1.5">
+        <span class="text-sm font-medium text-zinc-700">Admin password</span>
+        <input
+          type="password"
+          name="password"
+          required
+          autofocus
+          class="rounded-md border border-zinc-300 px-3 py-1.5 text-sm focus:border-zinc-500 focus:outline-none"
+        />
+      </label>
+      {
+        hasError && (
+          <p class="text-sm text-red-600">Wrong password, try again.</p>
+        )
+      }
+      <button
+        type="submit"
+        class="cursor-pointer rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+      >
+        Log in
+      </button>
+    </form>
+  </div>
+</Layout>

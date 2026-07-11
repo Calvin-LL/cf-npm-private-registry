@@ -1,4 +1,5 @@
 import type { APIContext } from "astro";
+import { env } from "cloudflare:workers";
 import { sha256Hex } from "@/lib/auth";
 import { getRuntimeConfig } from "@/lib/config";
 import {
@@ -49,14 +50,13 @@ interface PublishBody {
 
 export async function ALL(context: APIContext): Promise<Response> {
   const { request, locals } = context;
-  const env = locals.runtime.env;
   const config = getRuntimeConfig(env);
   const url = new URL(request.url);
   const parsed = parseRegistryPath(url.pathname);
   const method = request.method.toUpperCase();
 
   function waitUntil(promise: Promise<unknown>): void {
-    locals.runtime.ctx.waitUntil(promise);
+    locals.cfContext.waitUntil(promise);
   }
 
   async function maybeProxy(): Promise<Response> {
@@ -136,7 +136,7 @@ export async function ALL(context: APIContext): Promise<Response> {
       );
       if (!auth.ok) return auth.response;
       if (method === "PUT") return handleUnpublishSync(context, pkg);
-      if (method === "DELETE") return handleUnpublishAll(context, pkg);
+      if (method === "DELETE") return handleUnpublishAll(pkg);
       return npmError(405, `unsupported method ${method}`);
     }
 
@@ -231,7 +231,6 @@ async function handlePublish(
   context: APIContext,
   pkg: PackageRow,
 ): Promise<Response> {
-  const env = context.locals.runtime.env;
   let body: PublishBody;
   try {
     body = (await context.request.json()) as PublishBody;
@@ -342,7 +341,6 @@ async function handleUnpublishSync(
   context: APIContext,
   pkg: PackageRow,
 ): Promise<Response> {
-  const env = context.locals.runtime.env;
   let body: PublishBody;
   try {
     body = (await context.request.json()) as PublishBody;
@@ -374,11 +372,7 @@ async function handleUnpublishSync(
 
 // npm unpublish --force deletes the whole packument. The package row and its
 // tokens survive so the repo can be re-published to from the UI setup.
-async function handleUnpublishAll(
-  context: APIContext,
-  pkg: PackageRow,
-): Promise<Response> {
-  const env = context.locals.runtime.env;
+async function handleUnpublishAll(pkg: PackageRow): Promise<Response> {
   const rows = await listVersions(env.DB, pkg.id);
   if (rows.length > 0) {
     await env.TARBALLS.delete(
@@ -399,7 +393,6 @@ async function handleDistTags(
   maybeProxy: () => Promise<Response>,
   waitUntil: (promise: Promise<unknown>) => void,
 ): Promise<Response> {
-  const env = context.locals.runtime.env;
   const method = context.request.method.toUpperCase();
   const pkg = await getPackageByName(env.DB, name);
   if (!pkg) return maybeProxy();

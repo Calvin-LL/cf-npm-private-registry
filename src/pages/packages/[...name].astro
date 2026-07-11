@@ -1,0 +1,145 @@
+---
+import { env } from "cloudflare:workers";
+import CopyButton from "@/components/CopyButton.vue";
+import DeletePackageButton from "@/components/DeletePackageButton.vue";
+import TokenManager from "@/components/TokenManager.vue";
+import Layout from "@/layouts/Layout.astro";
+import { formatDate } from "@/lib/client";
+import {
+  getDistTags,
+  getPackageByName,
+  listTokens,
+  listVersions,
+} from "@/lib/db";
+
+const name = Astro.params.name ?? "";
+const pkg = await getPackageByName(env.DB, name);
+if (!pkg) {
+  return new Response("Package not found", { status: 404 });
+}
+const [tokens, versions, distTags] = await Promise.all([
+  listTokens(env.DB, pkg.id),
+  listVersions(env.DB, pkg.id),
+  getDistTags(env.DB, pkg.id),
+]);
+
+const tagsByVersion = new Map<string, string[]>();
+for (const [tag, version] of Object.entries(distTags)) {
+  tagsByVersion.set(version, [...(tagsByVersion.get(version) ?? []), tag]);
+}
+
+const scope = pkg.name.split("/")[0];
+const origin = Astro.url.origin;
+const host = Astro.url.host;
+const npmrcSnippet = `${scope}:registry=${origin}/\n//${host}/:_authToken=YOUR_TOKEN`;
+const installCommand = `npm install ${pkg.name}`;
+---
+
+<Layout title={pkg.name}>
+  <div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-1">
+      <a href="/" class="text-sm text-zinc-500 hover:text-zinc-900"
+        >&larr; All packages</a
+      >
+      <h1 class="font-mono text-2xl font-bold">{pkg.name}</h1>
+    </div>
+
+    <section
+      class="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm"
+    >
+      <h2 class="text-sm font-semibold text-zinc-700">Use this package</h2>
+      <p class="text-sm text-zinc-600">
+        Add this to the <code class="rounded bg-zinc-100 px-1 font-mono text-xs"
+          >.npmrc</code
+        > of any project that installs or publishes it, with a token generated below:
+      </p>
+      <div class="flex items-start gap-2">
+        <pre
+          class="grow overflow-x-auto rounded-md bg-zinc-900 p-3 font-mono text-xs leading-relaxed text-zinc-100">{npmrcSnippet}</pre>
+        <CopyButton client:load text={npmrcSnippet} />
+      </div>
+      <div class="flex items-start gap-2">
+        <pre
+          class="grow overflow-x-auto rounded-md bg-zinc-900 p-3 font-mono text-xs leading-relaxed text-zinc-100">{installCommand}</pre>
+        <CopyButton client:load text={installCommand} />
+      </div>
+      <p class="text-sm text-zinc-600">
+        Publishing works the same way: run{" "}
+        <code class="rounded bg-zinc-100 px-1 font-mono text-xs"
+          >npm publish</code
+        > in the package repo with a write token in its <code
+          class="rounded bg-zinc-100 px-1 font-mono text-xs">.npmrc</code
+        >.
+      </p>
+    </section>
+
+    <section
+      class="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm"
+    >
+      <h2 class="text-sm font-semibold text-zinc-700">Tokens</h2>
+      <TokenManager client:load packageId={pkg.id} initialTokens={tokens} />
+    </section>
+
+    <section
+      class="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm"
+    >
+      <h2 class="text-sm font-semibold text-zinc-700">Versions</h2>
+      {
+        versions.length === 0 ? (
+          <p class="text-sm text-zinc-500">
+            Nothing published yet. Generate a write token and run{" "}
+            <code class="rounded bg-zinc-100 px-1 font-mono text-xs">
+              npm publish
+            </code>
+            .
+          </p>
+        ) : (
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-zinc-200 text-xs text-zinc-500 uppercase">
+                  <th class="py-2 pr-4 font-medium">Version</th>
+                  <th class="py-2 pr-4 font-medium">Tags</th>
+                  <th class="py-2 font-medium">Published</th>
+                </tr>
+              </thead>
+              <tbody>
+                {versions
+                  .slice()
+                  .reverse()
+                  .map((version) => (
+                    <tr class="border-b border-zinc-100 last:border-b-0">
+                      <td class="py-2 pr-4 font-mono">{version.version}</td>
+                      <td class="py-2 pr-4">
+                        {(tagsByVersion.get(version.version) ?? []).map(
+                          (tag) => (
+                            <span class="mr-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                              {tag}
+                            </span>
+                          ),
+                        )}
+                      </td>
+                      <td class="py-2 text-zinc-600">
+                        {formatDate(version.published_at)}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      }
+    </section>
+
+    <section
+      class="flex flex-col gap-3 rounded-lg border border-red-200 bg-white p-4 shadow-sm"
+    >
+      <h2 class="text-sm font-semibold text-red-700">Danger zone</h2>
+      <DeletePackageButton
+        client:load
+        packageId={pkg.id}
+        packageName={pkg.name}
+      />
+    </section>
+  </div>
+</Layout>

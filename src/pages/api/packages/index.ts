@@ -1,16 +1,15 @@
 import type { APIContext } from "astro";
+import { env } from "cloudflare:workers";
 import { createPackage, getPackageByName, listPackages } from "@/lib/db";
 import { isValidPackageName } from "@/lib/registry";
 
 export const prerender = false;
 
-export async function GET(context: APIContext): Promise<Response> {
-  const env = context.locals.runtime.env;
+export async function GET(): Promise<Response> {
   return Response.json(await listPackages(env.DB));
 }
 
 export async function POST(context: APIContext): Promise<Response> {
-  const env = context.locals.runtime.env;
   let body: { name?: unknown };
   try {
     body = (await context.request.json()) as { name?: unknown };

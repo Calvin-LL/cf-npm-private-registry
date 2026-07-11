@@ -17,6 +17,15 @@ export async function sha256Hex(input: string): Promise<string> {
   return toHex(new Uint8Array(digest));
 }
 
+// crypto.subtle.timingSafeEqual is a Cloudflare Workers extension that is
+// missing from the DOM lib types astro check compiles against.
+interface TimingSafeSubtle {
+  timingSafeEqual(
+    a: ArrayBuffer | ArrayBufferView,
+    b: ArrayBuffer | ArrayBufferView,
+  ): boolean;
+}
+
 // Compares two strings in constant time using Cloudflare's built-in
 // crypto.subtle.timingSafeEqual. Both inputs are hashed first so the
 // comparison never leaks length information either.
@@ -28,7 +37,10 @@ export async function constantTimeEqual(
     crypto.subtle.digest("SHA-256", encoder.encode(a)),
     crypto.subtle.digest("SHA-256", encoder.encode(b)),
   ]);
-  return crypto.subtle.timingSafeEqual(digestA, digestB);
+  return (crypto.subtle as unknown as TimingSafeSubtle).timingSafeEqual(
+    digestA,
+    digestB,
+  );
 }
 
 export function generateToken(): string {
