@@ -143,7 +143,7 @@ Requests for unknown packages (and npm audit calls) are then forwarded to `UPSTR
 
 ## Security notes
 
-- The admin password is compared in constant time using `crypto.subtle.timingSafeEqual`, and UI sessions are signed HMAC cookies derived from it. Changing the password invalidates all sessions.
+- UI sessions are signed HMAC cookies derived from the admin password. Changing the password invalidates all sessions.
 - Registry tokens are random 256-bit values, stored only as SHA-256 hashes. The UI shows a short prefix so you can tell tokens apart later.
 - A token only ever grants access to the single package it was created for, limited to the read or write permissions you picked.
 - Everything (packuments and tarballs included) requires a token; nothing about your private packages is publicly readable.
@@ -158,12 +158,6 @@ npm run dev                      # UI + registry on http://localhost:4321
 ```
 
 `npm run build && npm run preview` runs the built worker in workerd, which is closest to production. Useful scripts: `npm run check` (typecheck), `npm run format` (prettier).
-
-## Limits worth knowing
-
-- Workers request bodies are capped at 100 MB on the free plan, and the tarball is base64-encoded inside the publish request, so packages up to roughly 75 MB publish fine. The public npm registry itself rejects anything over about 256 MB.
-- D1 and R2 free quotas (5 GB database storage, 10 GB object storage, and generous daily read/write allowances) are far beyond what a small team's private packages need.
-- `npm login` against this registry is intentionally unsupported; create tokens in the UI instead.
 
 ## License
 
