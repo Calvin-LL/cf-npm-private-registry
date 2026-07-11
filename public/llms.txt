@@ -1,0 +1,105 @@
+# cf-npm-private-registry
+
+> A self-hosted private npm registry running on Cloudflare Workers. This file documents the complete HTTP API so an automated agent can manage the registry (packages, tokens) and consume it (install, publish) without using the web UI. Source code and README: https://github.com/Calvin-LL/cf-npm-private-registry
+
+Two separate authentication schemes exist:
+
+- The **admin API** (`/api/*`) manages packages and tokens. It authenticates with a session cookie obtained by posting the admin password to `/api/login`. An agent that has the admin password can do everything the web UI can.
+- The **registry API** (every other path) speaks the standard npm registry protocol. It authenticates with a per-package bearer token created through the admin API. Prefer using the npm CLI against it rather than hand-rolling requests.
+
+General notes for agents:
+
+- Base URL: the origin this file was fetched from. Examples below call it `$REGISTRY`.
+- All admin endpoints accept and return JSON unless noted. Errors are JSON of the shape `{"error": "human readable message"}` with a 4xx/5xx status.
+- Do not send an `Origin` header that differs from the site origin; cross-site origins are rejected with 403. Omitting the header entirely (as curl does) is fine.
+- Package names must be scoped and lowercase, matching `@scope/name`.
+
+## Admin authentication
+
+Obtain a session cookie (valid 7 days):
+
+```sh
+curl -c cookies.txt -d "password=$ADMIN_PASSWORD" "$REGISTRY/api/login"
+```
+
+A correct password responds `303` redirecting to `/` and sets a `session` cookie; a wrong password responds `303` redirecting to `/login?error=1` and sets no cookie. Send the cookie with every admin request (`curl -b cookies.txt ...`). Requests without a valid session get `401 {"error":"unauthorized"}`. `POST /api/logout` clears the cookie.
+
+## Admin API: packages
+
+List packages:
+
+```sh
+curl -b cookies.txt "$REGISTRY/api/packages"
+```
+
+Returns `[{"id": 1, "name": "@scope/name", "created_at": "...", "version_count": 3, "token_count": 2, "latest_version": "1.1.0"}, ...]`. `latest_version` is null when nothing is published.
+
+Create a package (must exist before anything can be published to it):
+
+```sh
+curl -b cookies.txt -H "content-type: application/json" \
+  -d '{"name": "@scope/name"}' "$REGISTRY/api/packages"
+```
+
+Returns `201 {"id": 1, "name": "@scope/name", "created_at": "..."}`. Invalid names get 400; duplicates get 409.
+
+Delete a package and all of its versions, tarballs, and now-orphaned tokens:
+
+```sh
+curl -b cookies.txt -X DELETE "$REGISTRY/api/packages/1"
+```
+
+Returns `{"ok": true}`, or 404 if the id does not exist.
+
+## Admin API: tokens
+
+A token grants read (install) and/or write (publish) access to one or more packages. The token value is returned exactly once at creation and stored only as a hash; there is no way to retrieve it later.
+
+List tokens:
+
+```sh
+curl -b cookies.txt "$REGISTRY/api/tokens"
+```
+
+Returns `[{"id": 1, "label": "ci-publish", "token_prefix": "cfnpm_ab12cd34", "can_read": 0, "can_write": 1, "created_at": "...", "last_used_at": null, "packages": ["@scope/name"]}, ...]`.
+
+Create a token (`packageIds` come from the package list above; at least one is required, as is at least one of `canRead`/`canWrite`):
+
+```sh
+curl -b cookies.txt -H "content-type: application/json" \
+  -d '{"label": "ci-publish", "canRead": false, "canWrite": true, "packageIds": [1, 2]}' \
+  "$REGISTRY/api/tokens"
+```
+
+Returns `201 {"token": "cfnpm_<64 hex chars>", "row": {...like the list entries...}}`. Save `token` immediately.
+
+Revoke a token:
+
+```sh
+curl -b cookies.txt -X DELETE "$REGISTRY/api/tokens/1"
+```
+
+Returns `{"ok": true}`, or 404 if the id does not exist.
+
+## Registry API (npm protocol)
+
+The recommended way to install and publish is the npm CLI with a two-line `.npmrc` next to the project's `package.json` (strip the protocol from the second line's host):
+
+```ini
+@scope:registry=$REGISTRY/
+//<registry host>/:_authToken=cfnpm_your_token_here
+```
+
+Then `npm install @scope/name` (needs read) and `npm publish` (needs write) work as usual, as do `npm view`, `npm dist-tag`, `npm deprecate`, and `npm unpublish`.
+
+For raw HTTP access, send `Authorization: Bearer cfnpm_...`:
+
+- `GET /@scope%2fname` returns the packument (all versions, dist-tags, tarball URLs). Needs read. 404 until something is published.
+- `GET /@scope/name/-/name-1.0.0.tgz` downloads a tarball. Needs read.
+- `PUT /@scope%2fname` publishes (npm publish JSON body with base64 `_attachments`). Needs write. Republishing an existing version fails with 403.
+- `GET /-/package/@scope%2fname/dist-tags` lists dist-tags (read); `PUT`/`DELETE` on `/-/package/@scope%2fname/dist-tags/<tag>` manage them (write).
+- `GET /-/whoami` returns `{"username": "<token label>"}` for a valid token.
+- `GET /-/ping` returns `{}` without authentication.
+- `npm login` is unsupported; tokens come from the admin API only.
+
+Unknown packages return 404 unless the deployment enables `PROXY_UPSTREAM`, in which case requests for packages this registry does not host are forwarded to the public npm registry.

@@ -166,6 +166,10 @@ registry=https://your-registry.workers.dev/
 
 Requests for unknown packages (and npm audit calls) are then forwarded to `UPSTREAM_REGISTRY` without your credentials. Your private packages are still served locally and still require tokens; public packages need no permissions at all.
 
+## For AI agents
+
+The deployed registry serves [`/llms.txt`](public/llms.txt), a plain-text reference covering the whole HTTP API: how to log in with the admin password, create and delete packages, mint and revoke tokens (including multi-package tokens), and talk to the npm protocol endpoints directly. An agent that knows the registry URL and the admin password can manage everything from that file alone; point it at `https://your-registry.workers.dev/llms.txt`.
+
 ## Security notes
 
 - UI sessions are signed HMAC cookies derived from the admin password. Changing the password invalidates all sessions.
