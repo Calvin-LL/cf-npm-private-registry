@@ -2,26 +2,38 @@
 import { env } from "cloudflare:workers";
 import CopyButton from "@/components/CopyButton.vue";
 import DeletePackageButton from "@/components/DeletePackageButton.vue";
+import PackageLogo from "@/components/PackageLogo.astro";
 import TokenManager from "@/components/TokenManager.vue";
 import Layout from "@/layouts/Layout.astro";
 import { formatDate } from "@/lib/client";
 import {
   getDistTags,
   getPackageByName,
+  listCargoVersions,
   listPackages,
   listTokensForPackage,
   listVersions,
 } from "@/lib/db";
 
 const name = Astro.params.name ?? "";
-const pkg = await getPackageByName(env.DB, name);
+const pkg =
+  (await getPackageByName(env.DB, name, "npm")) ??
+  (await getPackageByName(env.DB, name, "cargo"));
 if (!pkg) {
   return new Response("Package not found", { status: 404 });
 }
+const versionsPromise =
+  pkg.ecosystem === "cargo"
+    ? listCargoVersions(env.DB, pkg.id)
+    : listVersions(env.DB, pkg.id);
+const distTagsPromise =
+  pkg.ecosystem === "cargo"
+    ? Promise.resolve<Record<string, string>>({})
+    : getDistTags(env.DB, pkg.id);
 const [tokens, versions, distTags, packages] = await Promise.all([
   listTokensForPackage(env.DB, pkg.id),
-  listVersions(env.DB, pkg.id),
-  getDistTags(env.DB, pkg.id),
+  versionsPromise,
+  distTagsPromise,
   listPackages(env.DB),
 ]);
 const packageOptions = packages.map(function toOption(row) {
@@ -33,11 +45,19 @@ for (const [tag, version] of Object.entries(distTags)) {
   tagsByVersion.set(version, [...(tagsByVersion.get(version) ?? []), tag]);
 }
 
-const scope = pkg.name.split("/")[0];
 const origin = Astro.url.origin;
 const host = Astro.url.host;
-const npmrcSnippet = `${scope}:registry=${origin}/\n//${host}/:_authToken=YOUR_TOKEN`;
-const installCommand = `npm install ${pkg.name}`;
+const scope = pkg.name.split("/")[0];
+const setupSnippet =
+  pkg.ecosystem === "cargo"
+    ? `[registries.calvin]\nindex = "sparse+${origin}/cargo/index/"\ncredential-provider = "cargo:token"`
+    : `${scope}:registry=${origin}/\n//${host}/:_authToken=YOUR_TOKEN`;
+const installCommand =
+  pkg.ecosystem === "cargo"
+    ? `cargo add ${pkg.name} --registry calvin`
+    : `npm install ${pkg.name}`;
+const publishCommand =
+  pkg.ecosystem === "cargo" ? "cargo publish --registry calvin" : "npm publish";
 ---
 
 <Layout title={pkg.name}>
@@ -46,7 +66,10 @@ const installCommand = `npm install ${pkg.name}`;
       <a href="/" class="text-ink-faint hover:text-ink text-sm"
         >&larr; All packages</a
       >
-      <h1 class="font-mono text-2xl font-bold">{pkg.name}</h1>
+      <div class="flex items-center gap-3">
+        <PackageLogo ecosystem={pkg.ecosystem} class="h-7 w-7 shrink-0" />
+        <h1 class="font-mono text-2xl font-bold">{pkg.name}</h1>
+      </div>
     </div>
 
     <section
@@ -55,13 +78,13 @@ const installCommand = `npm install ${pkg.name}`;
       <h2 class="text-ink-muted text-sm font-semibold">Use this package</h2>
       <p class="text-ink-muted text-sm">
         Add this to the <code class="bg-chip rounded px-1 font-mono text-xs"
-          >.npmrc</code
+          >{pkg.ecosystem === "cargo" ? ".cargo/config.toml" : ".npmrc"}</code
         > of any project that installs or publishes it, with a token generated below:
       </p>
       <div class="flex items-start gap-2">
         <pre
-          class="bg-code-bg text-code-ink grow overflow-x-auto rounded-md p-3 font-mono text-xs leading-relaxed">{npmrcSnippet}</pre>
-        <CopyButton client:load text={npmrcSnippet} />
+          class="bg-code-bg text-code-ink grow overflow-x-auto rounded-md p-3 font-mono text-xs leading-relaxed">{setupSnippet}</pre>
+        <CopyButton client:load text={setupSnippet} />
       </div>
       <div class="flex items-start gap-2">
         <pre
@@ -70,10 +93,11 @@ const installCommand = `npm install ${pkg.name}`;
       </div>
       <p class="text-ink-muted text-sm">
         Publishing works the same way: run{" "}
-        <code class="bg-chip rounded px-1 font-mono text-xs">npm publish</code> in
-        the package repo with a write token in its <code
-          class="bg-chip rounded px-1 font-mono text-xs">.npmrc</code
-        >.
+        <code class="bg-chip rounded px-1 font-mono text-xs"
+          >{publishCommand}</code
+        > in the package repo with a write token configured through {
+          pkg.ecosystem === "cargo" ? "Cargo" : ".npmrc"
+        }.
       </p>
     </section>
 
@@ -104,7 +128,7 @@ const installCommand = `npm install ${pkg.name}`;
           <p class="text-ink-faint text-sm">
             Nothing published yet. Generate a write token and run{" "}
             <code class="bg-chip rounded px-1 font-mono text-xs">
-              npm publish
+              {publishCommand}
             </code>
             .
           </p>

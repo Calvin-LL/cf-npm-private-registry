@@ -1,0 +1,32 @@
+---
+interface Props {
+  ecosystem: "npm" | "cargo";
+  class?: string;
+}
+
+const { ecosystem, class: className = "h-5 w-5 shrink-0" } = Astro.props;
+---
+
+{
+  ecosystem === "npm" ? (
+    <svg class={className} viewBox="0 0 24 24" role="img" aria-label="npm">
+      <rect width="24" height="24" rx="2" fill="#CB3837" />
+      <path
+        fill="#fff"
+        d="M4 5.5h16v13h-8v-9H9.5v9H4v-13Zm2.5 2.5v8h1v-8h7v8h3V8h-11Z"
+      />
+    </svg>
+  ) : (
+    <svg class={className} viewBox="0 0 24 24" role="img" aria-label="Cargo">
+      <path
+        fill="#A56A43"
+        d="m12 1.5 2.1 2.3 3-.6.8 2.9 2.9.8-.6 3 2.3 2.1-2.3 2.1.6 3-2.9.8-.8 2.9-3-.6-2.1 2.3-2.1-2.3-3 .6-.8-2.9-2.9-.8.6-3L1.5 12l2.3-2.1-.6-3 2.9-.8.8-2.9 3 .6L12 1.5Z"
+      />
+      <circle cx="12" cy="12" r="6.25" fill="#fff" />
+      <path
+        fill="#A56A43"
+        d="M15.9 15.1a5 5 0 1 1 0-6.2l-2 1.5a2.5 2.5 0 1 0 0 3.2l2 1.5Z"
+      />
+    </svg>
+  )
+}

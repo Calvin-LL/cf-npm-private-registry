@@ -1,15 +1,26 @@
 <script setup lang="ts">
-import { shallowRef } from "vue";
+import { computed, shallowRef } from "vue";
 import { ApiError, apiFetch } from "@/lib/client";
 
 const name = shallowRef("");
+const ecosystem = shallowRef<"npm" | "cargo">("npm");
 const error = shallowRef<string | undefined>(undefined);
 const submitting = shallowRef(false);
+const placeholder = computed(function packagePlaceholder() {
+  return ecosystem.value === "npm" ? "@myscope/my-package" : "my-crate";
+});
 
 async function createPackage(): Promise<void> {
   const trimmed = name.value.trim();
-  if (!/^@[a-z0-9~-][a-z0-9._~-]*\/[a-z0-9~-][a-z0-9._~-]*$/.test(trimmed)) {
-    error.value = "Use a scoped lowercase name, like @myscope/my-package";
+  const valid =
+    ecosystem.value === "npm"
+      ? /^@[a-z0-9~-][a-z0-9._~-]*\/[a-z0-9~-][a-z0-9._~-]*$/.test(trimmed)
+      : /^[a-z][a-z0-9_-]{0,63}$/.test(trimmed);
+  if (!valid) {
+    error.value =
+      ecosystem.value === "npm"
+        ? "Use a scoped lowercase name, like @myscope/my-package"
+        : "Use a lowercase Cargo crate name, like my-crate";
     return;
   }
   submitting.value = true;
@@ -17,7 +28,7 @@ async function createPackage(): Promise<void> {
   try {
     await apiFetch("/api/packages", {
       method: "POST",
-      body: JSON.stringify({ name: trimmed }),
+      body: JSON.stringify({ name: trimmed, ecosystem: ecosystem.value }),
     });
     window.location.href = `/packages/${trimmed}`;
   } catch (cause) {
@@ -30,11 +41,19 @@ async function createPackage(): Promise<void> {
 
 <template>
   <form class="flex flex-col gap-2" @submit.prevent="createPackage">
-    <div class="flex gap-2">
+    <div class="flex flex-wrap gap-2">
+      <select
+        v-model="ecosystem"
+        aria-label="Package ecosystem"
+        class="border-line-strong bg-surface focus:border-line-focus cursor-pointer rounded-md border px-3 py-1.5 text-sm focus:outline-none"
+      >
+        <option value="npm">npm</option>
+        <option value="cargo">Cargo</option>
+      </select>
       <input
         v-model="name"
         type="text"
-        placeholder="@myscope/my-package"
+        :placeholder="placeholder"
         required
         class="border-line-strong bg-surface focus:border-line-focus w-72 rounded-md border px-3 py-1.5 font-mono text-sm placeholder:font-sans focus:outline-none"
       />

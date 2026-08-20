@@ -1,6 +1,8 @@
 export interface PackageRow {
   id: number;
   name: string;
+  ecosystem: "npm" | "cargo";
+  normalized_name: string;
   created_at: string;
 }
 
@@ -35,6 +37,17 @@ export interface VersionRow {
   published_at: string;
 }
 
+export interface CargoVersionRow {
+  id: number;
+  package_id: number;
+  version: string;
+  version_key: string;
+  index_entry: string;
+  tarball_key: string;
+  checksum: string;
+  published_at: string;
+}
+
 const TOKEN_COLUMNS =
   "id, label, token_prefix, can_read, can_write, created_at, last_used_at";
 
@@ -63,10 +76,17 @@ export async function listPackages(db: D1Database): Promise<PackageSummary[]> {
   const result = await db
     .prepare(
       `SELECT p.id, p.name, p.created_at,
-        (SELECT COUNT(*) FROM versions v WHERE v.package_id = p.id) AS version_count,
+        p.ecosystem, p.normalized_name,
+        CASE p.ecosystem
+          WHEN 'cargo' THEN (SELECT COUNT(*) FROM cargo_versions cv WHERE cv.package_id = p.id)
+          ELSE (SELECT COUNT(*) FROM versions v WHERE v.package_id = p.id)
+        END AS version_count,
         (SELECT COUNT(*) FROM token_packages tp WHERE tp.package_id = p.id) AS token_count,
-        (SELECT dt.version FROM dist_tags dt WHERE dt.package_id = p.id AND dt.tag = 'latest') AS latest_version
-      FROM packages p ORDER BY p.name`,
+        CASE p.ecosystem
+          WHEN 'cargo' THEN (SELECT cv.version FROM cargo_versions cv WHERE cv.package_id = p.id ORDER BY cv.published_at DESC LIMIT 1)
+          ELSE (SELECT dt.version FROM dist_tags dt WHERE dt.package_id = p.id AND dt.tag = 'latest')
+        END AS latest_version
+      FROM packages p ORDER BY p.ecosystem, p.name`,
     )
     .all<PackageSummary>();
   return result.results;
@@ -75,10 +95,13 @@ export async function listPackages(db: D1Database): Promise<PackageSummary[]> {
 export async function getPackageByName(
   db: D1Database,
   name: string,
+  ecosystem: PackageRow["ecosystem"] = "npm",
 ): Promise<PackageRow | undefined> {
   const row = await db
-    .prepare("SELECT * FROM packages WHERE name = ?")
-    .bind(name)
+    .prepare(
+      "SELECT * FROM packages WHERE ecosystem = ? AND normalized_name = ?",
+    )
+    .bind(ecosystem, normalizePackageName(name, ecosystem))
     .first<PackageRow>();
   return row ?? undefined;
 }
@@ -112,10 +135,13 @@ export async function getPackagesByIds(
 export async function createPackage(
   db: D1Database,
   name: string,
+  ecosystem: PackageRow["ecosystem"],
 ): Promise<PackageRow> {
   const row = await db
-    .prepare("INSERT INTO packages (name) VALUES (?) RETURNING *")
-    .bind(name)
+    .prepare(
+      "INSERT INTO packages (name, ecosystem, normalized_name) VALUES (?, ?, ?) RETURNING *",
+    )
+    .bind(name, ecosystem, normalizePackageName(name, ecosystem))
     .first<PackageRow>();
   if (!row) throw new Error("failed to create package");
   return row;
@@ -217,14 +243,15 @@ export async function tokenGrantsPackage(
   db: D1Database,
   tokenId: number,
   packageName: string,
+  ecosystem: PackageRow["ecosystem"] = "npm",
 ): Promise<boolean> {
   const row = await db
     .prepare(
       `SELECT 1 AS granted FROM token_packages tp
       JOIN packages p ON p.id = tp.package_id
-      WHERE tp.token_id = ? AND p.name = ?`,
+      WHERE tp.token_id = ? AND p.ecosystem = ? AND p.normalized_name = ?`,
     )
-    .bind(tokenId, packageName)
+    .bind(tokenId, ecosystem, normalizePackageName(packageName, ecosystem))
     .first<{ granted: number }>();
   return row !== null;
 }
@@ -383,4 +410,81 @@ export async function replaceDistTags(
   for (const [tag, version] of Object.entries(tags)) {
     await setDistTag(db, packageId, tag, version);
   }
+}
+
+export function normalizePackageName(
+  name: string,
+  ecosystem: PackageRow["ecosystem"],
+): string {
+  return ecosystem === "cargo" ? name.toLowerCase().replaceAll("_", "-") : name;
+}
+
+export async function listCargoVersions(
+  db: D1Database,
+  packageId: number,
+): Promise<CargoVersionRow[]> {
+  const result = await db
+    .prepare(
+      "SELECT * FROM cargo_versions WHERE package_id = ? ORDER BY published_at",
+    )
+    .bind(packageId)
+    .all<CargoVersionRow>();
+  return result.results;
+}
+
+export async function getCargoVersion(
+  db: D1Database,
+  packageId: number,
+  version: string,
+): Promise<CargoVersionRow | undefined> {
+  const row = await db
+    .prepare(
+      "SELECT * FROM cargo_versions WHERE package_id = ? AND version = ?",
+    )
+    .bind(packageId, version)
+    .first<CargoVersionRow>();
+  return row ?? undefined;
+}
+
+export async function getCargoVersionByVersionKey(
+  db: D1Database,
+  packageId: number,
+  version: string,
+): Promise<CargoVersionRow | undefined> {
+  const row = await db
+    .prepare(
+      "SELECT * FROM cargo_versions WHERE package_id = ? AND version_key = ?",
+    )
+    .bind(packageId, version.split("+")[0])
+    .first<CargoVersionRow>();
+  return row ?? undefined;
+}
+
+export interface InsertCargoVersionInput {
+  packageId: number;
+  version: string;
+  indexEntry: string;
+  tarballKey: string;
+  checksum: string;
+}
+
+export async function insertCargoVersion(
+  db: D1Database,
+  input: InsertCargoVersionInput,
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO cargo_versions
+       (package_id, version, version_key, index_entry, tarball_key, checksum)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      input.packageId,
+      input.version,
+      input.version.split("+")[0],
+      input.indexEntry,
+      input.tarballKey,
+      input.checksum,
+    )
+    .run();
 }

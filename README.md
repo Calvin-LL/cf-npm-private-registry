@@ -1,12 +1,13 @@
 # cf-npm-private-registry
 
-A self-hosted npm registry for private packages that runs entirely on Cloudflare Workers, with D1 for metadata and R2 for tarballs.
+A self-hosted npm and Cargo registry for private packages that runs entirely on Cloudflare Workers, with D1 for metadata and R2 for package archives.
 
 **The goal: let you host scoped private npm packages without paying.** npm charges per user per month for private packages. This registry runs comfortably inside Cloudflare's free tier (Workers, D1, and R2 all have generous free quotas, and R2 has no egress fees), so a small team can publish and install private packages for free.
 
 ## What you get
 
 - A real npm registry: `npm install`, `npm publish`, `npm view`, `npm deprecate`, `npm dist-tag`, and `npm unpublish` all work against it.
+- An authenticated Cargo sparse registry: `cargo add`, `cargo build`, and `cargo publish` work with private crates.
 - A password-protected web UI to create packages and manage tokens. The password check uses Cloudflare's built-in constant-time comparison (`crypto.subtle.timingSafeEqual`).
 - Access tokens with three permission levels: read only (install), write only (publish), or read and write. A token can grant access to a single package or to several at once, and each package can have as many tokens as you like.
 - Tokens are stored as SHA-256 hashes and shown exactly once at creation.
@@ -46,11 +47,11 @@ The UI sits behind a single admin password:
 
 ## How it works
 
-Package names must be scoped (`@yourscope/yourpackage`). That is what makes the "no proxy" setup work: your projects keep installing everything else from the public npm registry, and only requests for your scope go to this one.
+npm package names must be scoped (`@yourscope/yourpackage`). That is what makes the "no proxy" npm setup work: your projects keep installing everything else from the public npm registry, and only requests for your scope go to this one. Cargo crates use normal lowercase crate names such as `my-private-crate` and are selected through Cargo's named registry configuration.
 
-- **Workers** serve both the npm protocol endpoints and the admin UI (an Astro + Vue app).
-- **D1** stores packages, versions, dist-tags, and token hashes.
-- **R2** stores the package tarballs.
+- **Workers** serve the npm protocol, Cargo sparse index and publish API, and the admin UI (an Astro + Vue app).
+- **D1** stores packages, versions, Cargo index entries, dist-tags, and token hashes.
+- **R2** stores npm tarballs and Cargo `.crate` archives.
 
 ## Deploy
 
@@ -107,7 +108,7 @@ Nothing deployment-specific is stored in the repo, so pulling updates never conf
 
 ### 1. Create a package and a token in the UI
 
-Log in, create a package like `@yourscope/yourpackage`, then generate tokens for it on the package page:
+Log in, choose npm or Cargo, create a package such as `@yourscope/yourpackage` or `my-private-crate`, then generate tokens for it on the package page:
 
 - a **read** token for machines that install it,
 - a **write** token for CI that publishes it,
@@ -115,7 +116,9 @@ Log in, create a package like `@yourscope/yourpackage`, then generate tokens for
 
 When generating a token you pick which packages it grants access to, so one token can cover your whole scope (handy for a developer machine or a CI job that installs several private packages). The tokens page shows every token across all packages. The token value itself is shown once; copy it immediately.
 
-### 2. Point npm at your registry for your scope
+### npm
+
+#### 2. Point npm at your registry for your scope
 
 Add two lines to the `.npmrc` of any project that uses the package (next to its `package.json`, or in `~/.npmrc` for your whole machine):
 
@@ -133,7 +136,7 @@ For CI, keep the token out of the repo by referencing an environment variable in
 //your-registry.workers.dev/:_authToken=${NPM_TOKEN}
 ```
 
-### 3. Install
+#### 3. Install
 
 ```sh
 npm install @yourscope/yourpackage
@@ -141,7 +144,7 @@ npm install @yourscope/yourpackage
 
 pnpm, yarn, and bun read the same `.npmrc` settings and work too.
 
-### 4. Publish
+#### 4. Publish
 
 In the repo of the package itself, with a write token in its `.npmrc`:
 
@@ -150,6 +153,36 @@ npm publish
 ```
 
 Note that the package must first be created in the UI: tokens grant access per package, so there is nothing to authenticate against before it exists. Version conflicts are rejected (you cannot overwrite an already-published version), and `npm publish --tag beta`, `npm deprecate`, `npm dist-tag`, and `npm unpublish` behave like they do on the public registry.
+
+### Cargo
+
+Create `.cargo/config.toml` in the crate or workspace that consumes the private registry:
+
+```toml
+[registries.calvin]
+index = "sparse+https://your-registry.workers.dev/cargo/index/"
+credential-provider = "cargo:token"
+```
+
+Store the token outside the repository. For local development, Cargo can save it through its configured credential provider:
+
+```sh
+cargo login --registry calvin
+```
+
+CI should supply the token through `CARGO_REGISTRIES_CALVIN_TOKEN`. A read token can install a private crate:
+
+```sh
+cargo add my-private-crate --registry calvin
+```
+
+A write token can publish a crate that was created in the registry UI:
+
+```sh
+cargo publish --registry calvin
+```
+
+Set `publish = ["calvin"]` in the crate's `Cargo.toml` to prevent an accidental publication to crates.io.
 
 ## Proxying the public registry
 
@@ -181,7 +214,7 @@ The deployed registry serves [`/llms.txt`](public/llms.txt), a plain-text refere
 - UI sessions are signed HMAC cookies derived from the admin password. Changing the password invalidates all sessions.
 - Registry tokens are random 256-bit values, stored only as SHA-256 hashes. The UI shows a short prefix so you can tell tokens apart later.
 - A token only ever grants access to the packages you selected when creating it, limited to the read or write permissions you picked.
-- Everything (packuments and tarballs included) requires a token; nothing about your private packages is publicly readable.
+- Everything (packuments, sparse index entries, and package archives included) requires a token; nothing about your private packages is publicly readable.
 
 ## Local development
 

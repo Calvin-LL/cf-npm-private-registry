@@ -1,6 +1,7 @@
 ---
 import { env } from "cloudflare:workers";
 import CreatePackageForm from "@/components/CreatePackageForm.vue";
+import PackageLogo from "@/components/PackageLogo.astro";
 import Layout from "@/layouts/Layout.astro";
 import { formatDate } from "@/lib/client";
 import { listPackages } from "@/lib/db";
@@ -37,12 +38,15 @@ const packages = await listPackages(env.DB);
                 {packages.map((pkg) => (
                   <tr class="border-line-soft border-b last:border-b-0">
                     <td class="py-2.5 pr-4">
-                      <a
-                        href={`/packages/${pkg.name}`}
-                        class="text-ink font-mono text-sm font-medium hover:underline"
-                      >
-                        {pkg.name}
-                      </a>
+                      <span class="flex items-center gap-2">
+                        <PackageLogo ecosystem={pkg.ecosystem} />
+                        <a
+                          href={`/packages/${pkg.name}`}
+                          class="text-ink font-mono text-sm font-medium hover:underline"
+                        >
+                          {pkg.name}
+                        </a>
+                      </span>
                     </td>
                     <td class="text-ink-muted py-2.5 pr-4 font-mono">
                       {pkg.latest_version ?? "unpublished"}

@@ -5,9 +5,9 @@ import { SESSION_COOKIE_NAME, verifySession } from "@/lib/auth";
 import { getRuntimeConfig } from "@/lib/config";
 
 // The admin UI lives in a fixed namespace; every other path belongs to the
-// npm registry protocol, which does its own token authentication. Package
-// names are required to be scoped (start with "@"), so they can never
-// collide with these prefixes.
+// npm and Cargo registry protocols, which do their own token authentication.
+// npm package names are scoped, and Cargo routes live below /cargo, so neither
+// protocol can collide with these prefixes.
 const UI_PATH_PATTERN = /^\/(?:$|login$|tokens$|packages(?:\/|$)|api(?:\/|$))/;
 
 async function handleUiRequest(

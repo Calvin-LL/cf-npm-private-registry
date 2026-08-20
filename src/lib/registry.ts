@@ -3,6 +3,7 @@ import {
   findTokenByHash,
   tokenGrantsPackage,
   touchToken,
+  type PackageRow,
   type TokenRow,
 } from "@/lib/db";
 
@@ -118,6 +119,7 @@ export async function authenticate(
   packageName: string,
   permission: "read" | "write",
   waitUntil: (promise: Promise<unknown>) => void,
+  ecosystem: PackageRow["ecosystem"] = "npm",
 ): Promise<RegistryAuth> {
   const token = bearerToken(request);
   if (!token) {
@@ -133,7 +135,7 @@ export async function authenticate(
   if (!found) {
     return { ok: false, response: npmError(401, "invalid or revoked token") };
   }
-  if (!(await tokenGrantsPackage(db, found.id, packageName))) {
+  if (!(await tokenGrantsPackage(db, found.id, packageName, ecosystem))) {
     return {
       ok: false,
       response: npmError(

@@ -1,6 +1,11 @@
 import type { APIContext } from "astro";
 import { env } from "cloudflare:workers";
-import { deletePackage, getPackageById, listVersions } from "@/lib/db";
+import {
+  deletePackage,
+  getPackageById,
+  listCargoVersions,
+  listVersions,
+} from "@/lib/db";
 
 export const prerender = false;
 
@@ -13,7 +18,10 @@ export async function DELETE(context: APIContext): Promise<Response> {
   if (!pkg) {
     return Response.json({ error: "package not found" }, { status: 404 });
   }
-  const versions = await listVersions(env.DB, id);
+  const versions =
+    pkg.ecosystem === "cargo"
+      ? await listCargoVersions(env.DB, id)
+      : await listVersions(env.DB, id);
   if (versions.length > 0) {
     await env.TARBALLS.delete(
       versions.map(function toKey(row) {
