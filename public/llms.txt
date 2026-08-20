@@ -117,7 +117,7 @@ index = "sparse+https://<registry host>/cargo/index/"
 credential-provider = "cargo:token"
 ```
 
-Provide the token through `CARGO_REGISTRIES_CALVIN_TOKEN` in CI, or run `cargo login --registry calvin` locally. Then `cargo add my-private-crate --registry calvin` needs read permission and `cargo publish --registry calvin` needs write permission.
+Provide the token through `CARGO_REGISTRIES_CALVIN_TOKEN` in CI, or run `cargo login --registry calvin` locally. Then `cargo add my-private-crate --registry calvin` needs read permission. `cargo publish --registry calvin` needs both read and write permission because Cargo polls the authenticated sparse index after uploading.
 
 Raw endpoints:
 

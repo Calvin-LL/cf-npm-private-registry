@@ -176,7 +176,7 @@ CI should supply the token through `CARGO_REGISTRIES_CALVIN_TOKEN`. A read token
 cargo add my-private-crate --registry calvin
 ```
 
-A write token can publish a crate that was created in the registry UI:
+A read and write token can publish a crate that was created in the registry UI. Cargo polls the authenticated sparse index after uploading, so write-only access is not sufficient:
 
 ```sh
 cargo publish --registry calvin

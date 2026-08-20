@@ -95,7 +95,9 @@ const publishCommand =
         Publishing works the same way: run{" "}
         <code class="bg-chip rounded px-1 font-mono text-xs"
           >{publishCommand}</code
-        > in the package repo with a write token configured through {
+        > in the package repo with a {
+          pkg.ecosystem === "cargo" ? "read and write" : "write"
+        } token configured through {
           pkg.ecosystem === "cargo" ? "Cargo" : ".npmrc"
         }.
       </p>
